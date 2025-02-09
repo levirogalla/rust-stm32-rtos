@@ -1,117 +1,50 @@
 #![no_std]
 #![no_main]
 
+use core::convert::TryFrom;
 use core::{arch::asm, panic::PanicInfo};
-use cortex_m::{
-    asm::{self, nop},
-    register::{self, msp, psp},
-};
 use cortex_m_rt::{entry, exception, ExceptionFrame};
 use rtt_target::{rprintln, rtt_init_print};
 // extern "C" {
 //     fn toggle_led() -> u32;
 // }
 
-#[no_mangle]
 #[inline(never)]
-fn foo(_r0: u32, _r1: u32, _r2: u32, _r3: u32) -> u32 {
+extern "C" fn foo(_r0: u32, _r1: u32, _r2: u32, _r3: u32) -> u32 {
     // this function should put those args on the stack
-    let mut r0_1: u32;
-    let mut r1_1: u32;
-    let mut r2_1: u32;
-    let mut r3_1: u32;
-    let mut r12_1: u32;
-    let mut sp_1: u32;
-    let mut lr_1: u32;
-    let mut pc_1: u32;
-    let mut xpsr_1: u32;
-
-    let mut r0_2: u32;
-    let mut r1_2: u32;
-    let mut r2_2: u32;
-    let mut r3_2: u32;
-    let mut r12_2: u32;
-    let mut sp_2: u32;
-    let mut lr_2: u32;
-    let mut pc_2: u32;
-    let mut xpsr_2: u32;
-
     let sp: u32;
-
-    rprintln!("In foo");
+    let xpsr: u32;
+    let pc: u32;
+    let lr: u32;
+    let _x = 0;
 
     unsafe {
-        // Inline assembly to push all registers to the stack
         asm!(
-            "mov {0}, r0",
-            "mov {1}, r1",
-            "mov {2}, r2",
-            "mov {3}, r3",
-            "mov {4}, r12",
-            "mov {5}, sp",
-            "mov {6}, lr",
-            "mov {7}, pc",
-            "mrs {8}, xPSR",
-            out(reg) r0_1,
-            out(reg) r1_1,
-            out(reg) r2_1,
-            out(reg) r3_1,
-            out(reg) r12_1,
-            out(reg) sp_1,
-            out(reg) lr_1,
-            out(reg) pc_1,
-            out(reg) xpsr_1,
-        );
-        asm!(
-            "mov {9}, sp",
-            "svc 0x02",
-            "mov {0}, r0",
-            "mov {1}, r1",
-            "mov {2}, r2",
-            "mov {3}, r3",
-            "mov {4}, r12",
-            "mov {5}, sp",
-            "mov {6}, lr",
-            "mov {7}, pc",
-            "mrs {8}, xPSR",
-            out(reg) r0_2,
-            out(reg) r1_2,
-            out(reg) r2_2,
-            out(reg) r3_2,
-            out(reg) r12_2,
-            out(reg) sp_2,
-            out(reg) lr_2,
-            out(reg) pc_2,
-            out(reg) xpsr_2,
+            "mov r4, sp",
+            "mrs r5, xPSR",
+            "mov r7, lr",
+            "mov r0, #0",
+            "mov r1, #1",
+            "mov r2, #2",
+            "mov r3, #3",
+            "mov r12, #12",
+            "mov r6, pc",
+            "svc #2",
+            "mov {0}, r4",
+            "mov {1}, r5",
+            "mov {2}, r6",
+            "mov {3}, r7",
             out(reg) sp,
+            out(reg) xpsr,
+            out(reg) pc,
+            out(reg) lr,
 
         );
-        rprintln!("SP: {}", sp);
-        rprintln!(
-            "Before SVC: R0: {}, R1: {}, R2: {}, R3: {}, R12: {}, SP: {}, LR: {}, PC: {}, xPSR: {}",
-            r0_1,
-            r1_1,
-            r2_1,
-            r3_1,
-            r12_1,
-            sp_1,
-            lr_1,
-            pc_1,
-            xpsr_1
-        );
-        rprintln!(
-            "After SVC:  R0: {}, R1: {}, R2: {}, R3: {}, R12: {}, SP: {}, LR: {}, PC: {}, xPSR: {}",
-            r0_2,
-            r1_2,
-            r2_2,
-            r3_2,
-            r12_2,
-            sp_2,
-            lr_2,
-            pc_2,
-            xpsr_2
-        );
+        let icsr = 0xE000ED04 as *mut u32; // Address of SCB_ICSR
+        core::ptr::write_volatile(icsr, 1 << 28); // Set PENDSVSET (bit 28)
+        rprintln!("In foo: SP: {}, xPSR: {}, PC: {}, LR: {}", sp, xpsr, pc, lr,);
     }
+
     return 1;
 }
 
@@ -125,53 +58,29 @@ fn main() -> ! {
         // unsafe { asm!("svc 0x01") };
 
         for _ in 0..200_000 {
-            nop();
+            unsafe { asm!("nop") };
         }
-        let x = foo(10, 20, 30, 40);
-        rprintln!("\n\n")
+        let _x = foo(10, 20, 30, 40);
+        rprintln!("\n\n");
     }
 }
 
-#[no_mangle]
-#[inline(never)]
-pub extern "C" fn SVCall() {
-    let psp: u32;
-    let offset1;
-    let offset2;
-    let offset3;
-    let offset4;
-    let offset5;
-    let offset6;
-    let offset7;
-    let offset8;
-    let offset9;
-
+#[exception]
+fn SVCall() {
+    let sf = StackFrame::load();
     unsafe {
-        asm!("mrs {}, psp", out(reg) psp);
-        offset1 = *(psp as *const u32).offset(0);
-        offset2 = *(psp as *const u32).offset(1);
-        offset3 = *(psp as *const u32).offset(2);
-        offset4 = *(psp as *const u32).offset(3);
-        offset5 = *(psp as *const u32).offset(4);
-        offset6 = *(psp as *const u32).offset(5);
-        offset7 = *(psp as *const u32).offset(6);
-        offset8 = *(psp as *const u32).offset(7);
-        offset9 = *(psp as *const u32).offset(8);
-    }
-    rprintln!("PSP: {}", psp);
-    rprintln!(
-        "Values: 1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {}, 8: {}, 9: {}",
-        offset1,
-        offset2,
-        offset3,
-        offset4,
-        offset5,
-        offset6,
-        offset7,
-        offset8,
-        offset9
-    );
+        rprintln!(
+            "StackFrame ({}): {:?}",
+            ProgramStatus::load().get_interrupt_program_status(),
+            sf.unwrap().get_svc_number()
+        )
+    };
 }
+
+// the same (ish) as
+// #[no_mangle]
+// #[inline(never)]
+// pub extern "C" fn SVCall() {...}
 
 fn use_psp() {
     unsafe {
@@ -188,29 +97,6 @@ fn use_psp() {
     }
 }
 
-// #[exception]
-// fn SVCall() {
-//     let sp: u32;
-
-//     let msp2: u32;
-//     // let psp: u32 = psp::read();
-//     // let svc_number: u8;
-//     unsafe {
-//         asm!("mov {}, sp", out(reg) sp);
-//         asm!("mrs {}, msp", out(reg) msp2);
-//         // asm!("mrs {}, psp", out(reg) psp);
-//     }
-
-//     let r0 = unsafe { *(msp2 as *const u32).offset(7) }; // R0
-//                                                          // rprintln!("SVCall {} with xPSR: {:#010X}, PC: {:#010X}, LR: {:#010X}, R12: {:#010X}, R3: {:#010X}, R2: {:#010X}, R1: {:#010X}, R0: {:#010X}", svc_number, xpsr, pc, lr, r12, r3, r2, r1, r0);
-//                                                          // rprintln!(
-//                                                          //     "In exception: SP: {}, MSP1: {}, MSP2: {}, R0: {}",
-//                                                          //     sp,
-//                                                          //     msp1,
-//                                                          //     msp2,
-//                                                          //     r0
-//                                                          // );
-// }
 #[inline(never)]
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -222,4 +108,99 @@ fn panic(_info: &PanicInfo) -> ! {
 unsafe fn HardFault(_sf: &ExceptionFrame) -> ! {
     rprintln!("HardFault!");
     loop {}
+}
+
+#[exception]
+unsafe fn PendSV() {
+    rprintln!(
+        "PendSV: {}",
+        ProgramStatus::load().get_interrupt_program_status()
+    );
+}
+
+#[derive(Debug)]
+struct ProgramStatus {
+    xpsr: u32,
+}
+
+impl ProgramStatus {
+    pub unsafe fn load() -> Self {
+        let xpsr: u32;
+        unsafe {
+            asm!("mrs {}, xPSR", out(reg) xpsr);
+        };
+        ProgramStatus { xpsr }
+    }
+
+    pub fn get_interrupt_program_status(&self) -> u8 {
+        (self.xpsr & 0x1FF) as u8
+    }
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+struct StackFrame {
+    r0: u32,
+    r1: u32,
+    r2: u32,
+    r3: u32,
+    r12: u32,
+    lr: u32,
+    pc: u32,
+    xpsr: ProgramStatus,
+}
+
+impl StackFrame {
+    pub fn load() -> Option<Self> {
+        let ps = unsafe { ProgramStatus::load() };
+        if ps.get_interrupt_program_status() == 0 {
+            return None;
+        }
+
+        let psp: *const u32;
+        unsafe {
+            asm!("mrs {}, psp", out(reg) psp);
+            Some(StackFrame {
+                r0: *psp.offset(0),
+                r1: *psp.offset(1),
+                r2: *psp.offset(2),
+                r3: *psp.offset(3),
+                r12: *psp.offset(4),
+                lr: *psp.offset(5),
+                pc: *psp.offset(6),
+                xpsr: ProgramStatus {
+                    xpsr: *psp.offset(7),
+                },
+            })
+        }
+    }
+
+    pub fn get_svc_number(&self) -> Option<u8> {
+        unsafe {
+            match Interrupt::try_from(ProgramStatus::load().get_interrupt_program_status()) {
+                Ok(Interrupt::SVC) => Some({
+                    let ptr = self.pc as *const u8;
+                    *ptr.offset(-2)
+                }),
+                _ => None,
+            }
+        }
+    }
+}
+
+enum Interrupt {
+    SVC = 11,
+    PendSV = 14,
+}
+
+impl TryFrom<u8> for Interrupt {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            11 => Ok(Interrupt::SVC),
+            14 => Ok(Interrupt::PendSV),
+            _ => Err(()),
+        }
+    }
 }
