@@ -1,0 +1,9 @@
+Feb 8: Just figured out why I wasn't able to access the cpu state before a context switch. I was only using msp.
+I changed to psp and now things are looking a bit better, sp follows psp in user mode and if follows msp is privileged mode
+I haven't been apple to access r0,r1,r2,r3 from the stack yet but I think it should be easier, psp increase by 36 bytes when a 
+context switch happens, this is wierd since arm abi only pushes 8 u32's to the stack, what is the extra 4 bytes?
+
+Feb 8: I've been calling the svc and then getting the register values right after in inline assembly, I though the cpu
+restores them, so i was really confused that they are different. But I realised that llvm does not optimize my inline assembly,
+and it is actually the compiler that stores my registers, the ABI says that the calling function is responsible for storing r0-r3
+so my inline assembly is never giving a chance for the compiler to restore the registers.
