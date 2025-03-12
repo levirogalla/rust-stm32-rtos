@@ -1,5 +1,8 @@
-fn main() {
-    // println!("cargo:rerun-if-changed=asm/led.s");
+use cc::Build;
 
-    // cc::Build::new().file("asm/led.s").compile("led");
+fn main() {
+    println!("cargo:rerun-if-changed=src/context_switch.S");
+    Build::new()
+        .file("src/asm_utils.s")
+        .compile("asm");
 }
