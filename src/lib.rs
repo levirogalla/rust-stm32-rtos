@@ -9,19 +9,18 @@ mod interupts;
 mod state;
 mod syscalls;
 mod utils;
+mod kernel;
 mod synchronization;
 
 
+use core::num;
 use core::{arch::asm, ptr};
 use core::sync::atomic::Ordering;
 
 use rtt_target::{rprintln, rtt_init_print};
-use utils::InterruptContext;
+use kernel::{TCB, initial_context_switch, idle};
+use utils::read_control_register;
 
-extern "C" {
-    fn runFirstThread();
-    // fn idleThread();
-}
 // /// Represents a thread/task in the RTOS
 // #[repr(C)]
 // pub struct Thread {
@@ -38,6 +37,7 @@ extern "C" {
 //     Blocked,
 // }
 
+/// Initializes the kernel, setting up the initial stack pointer and preparing for task scheduling.
 pub fn kernel_init() {
     // Initialize the scheduler
     rtt_init_print!();
@@ -47,167 +47,16 @@ pub fn kernel_init() {
     );
     rprintln!("Kernel initialized");
 }
-#[no_mangle]
+
+/// Starts the idle task and switches to it using the initial context switch.
 pub fn start_scheduler() {
-    unsafe { asm!("svc #0"); };
-    // let tcb = create_task(idle as u32, 0x400).unwrap(); // create the idle task
-    // unsafe { 
-    //     asm!("msr psp, {0}", in(reg) tcb.stack_ptr);
-    //     runFirstThread(); 
-    // }
-    // rprintln!("here")
-    // unsafe {
-    //     let control: u32;
-    //     asm!(
-    //         "mov r0, #0x0",
-    //         "msr CONTROL, r0",
-
-    //     );
-    // //     rprintln!("Control: {:x}", control);
-    // }
-
-    // rprintln!("TCB: {:?}", tcb);
-    // unsafe {
-    // unsafe {
-    //     let psp: u32;
-    //     let msp: u32;
-    //     let sp: u32;
-    //     asm!(
-    //         "mrs {0}, psp",
-    //         "mrs {1}, msp",
-    //         "mov {2}, sp",
-    //         out(reg) psp,
-    //         out(reg) msp,
-    //         out(reg) sp
-    //     );
-    //     rprintln!("PSP: {:x}, MSP: {:x}, SP: {:x}, TSB: {:x}", psp, msp, sp, tcb.stack_ptr);
-    // }
-
-//     rprintln!("{:x}, {:x}", *((tcb.stack_start as *const u32).offset(-2)), idle as u32);
-    //     asm!(
-    //         "mov pc, {0}",
-    //         in(reg) idle as u32
-    //     )
-    // };
-    // unsafe {
-    //     rprintln!("{}", (tcb.stack_ptr as *const u32) as u32);
-    //     rprintln!("{:X}", *(tcb.stack_start as *const u32).offset(-1));
-    //     rprintln!("{:X}, {:X}", *(tcb.stack_start as *const u32).offset(-2), idle as u32);
-    //     asm!(
-    //         "mov r0, {0}",
-    //         // "mov lr, #0xFFFFFFFD", // load context from psp
-    //         "msr psp, r0",
-    //         // "bx lr",
-    //         in(reg) tcb.stack_ptr,
-    //         // options(noreturn)
-    //     );
-    //     rprintln!("{:?}", InterruptContext::load());
-    //     if (tcb.stack_ptr as u32) & 0x7 != 0 {
-    //         rprintln!("ERROR: PSP Misaligned! Fixing...");
-    //     }
-    // }
-    // rprintln!("Hre");
-    // unsafe {
-    //     asm!(
-    //         // Set lr to return to the caller after context switch
-            
-    //         // Set psp (Process Stack Pointer)
-    //         "mov r0, {0}",
-    //         "msr psp, r0",  // Set PSP from the value passed into r0
-    //         "ldr r0, =0xFFFFFFFD",  
-    
-    //         // Return to thread execution using bx lr
-    //         "bx r0",
-            
-    //         in(reg) tcb.stack_ptr,  // Pass the stack pointer value
-    //         options(noreturn, preserves_flags)  // Don't let compiler optimize or clobber flags
-    //     );
-    // }
-    // unsafe {
-    //     asm!(
-    //         "mov pc, {0}",
-    //         in(reg) tcb.
-    //     )
-    // }    
-
-    // unsafe {
-    //     let pc: u32;
-    //     let pc_addr: u32;
-    //     let r11: u32;
-    //     asm!(
-    //         "mov r0, {0}", // load psp into r0
-    //         "mov lr, #0xFFFFFFFD", // this tells the cpu to restore the interupt state from the psp stack
-    //         "ldmia r0!, {{r4-r11}}", // load value r0 is pointing into r4-11, increment r0 to do this
-    //         "msr psp, r0", // restore the correct psp since we updated the stack
-    //         "mov r4, r0",
-    //         "ldmia r4!, {{r0-r3, r6, r7}}",
-    //         "mov {1}, r7",
-    //         "mov {2}, r4",
-    //         "mov {3}, r11",
-    //         // "bx lr", // special return to start executing the idle task
-    //         in(reg) tcb.stack_ptr,
-    //         out(reg) pc,
-    //         out(reg) pc_addr,
-    //         out(reg) r11
-    //     );
-    //     rprintln!("In sched: pc: {:x}, pc_addr: {:x}, r11: {}", pc, pc_addr, r11);
-
-    //     let v = *(tcb.stack_ptr as *const u32).offset(0);
-    //     rprintln!("In sched: {}", v);
-
-    //     let addr = 0x20015ff8;
-    //     rprintln!("Addr: {:x}", *(addr as *const u32).offset(0));
-    // }
-    // loop {}
-    // sp: 20017BC0
-    // start: 20017C00
-    // size: 1000
+    unsafe { asm!("svc #0")}
 }
 
-pub fn create_task(task: u32, stack_size: u32) -> Option<state::TCB> {
-    let stack_start = reserve_stack_space(stack_size)?; // reserve space and get the psp
-    let fake_context = utils::InterruptContext::new_fake(task as u32); // make a fake context
-    let psp = unsafe {
-        let sp = fake_context.push_to_sp(stack_start as *mut u32);
-        rprintln!("sp in create task: {:x}, {}", sp, *(sp as *const u32));
-        sp
-        // utils::CalleeRegisters::new_fake().push_to_sp((sp as *mut u32).offset(-1))
-    }; // push the context to the new reserved stack space, this is okay since we know that reserve stack space returns a valid stack
-       // although we can still overflow if there is not enough space. I need to check for overflow.
-    let tcb = state::TCB {
-        stack_ptr: psp,
-        stack_size: stack_size,
-        stack_start,
-        id: 0,
-    };
-    critical_section::with(|cs_token| state::THREADS.borrow(cs_token).borrow_mut().enqueue(tcb))?;
-    Some(tcb)
-}
-
-/// Reserves space on the stack for a new thread and return the stack pointer, this will also make sure the stack is 8-byte aligned
-fn reserve_stack_space(stack_size: u32) -> Option<u32> {
-    let aligned_stack_size = (stack_size + 7) & !7; // round up to the nearest 8 aligned size
-    let sp = state::LAST_STACK_END.fetch_sub(aligned_stack_size, Ordering::SeqCst);
-    if sp - stack_size < 0x20000000 { // make sure not to overflow the stack
-        None
-    } else {
-        Some(sp)
-    }
-}
-
-fn idle() -> ! {
-    
-    // for _ in 0..1000000 {
-    //     unsafe { asm!("nop") }
-    // }
-    rprintln!("Here");
-    loop {
-        rprintln!("Idle\n");
-        for _ in 0..1000000 {
-            unsafe { asm!("nop") }
-        }
-        // unsafe {asm!("wfi", options(nomem, nostack))}
-    }
+/// Creates a new task control block (TCB) for a task with the given stack size in bytes.
+pub fn create_task(task: fn() -> !, stack_size: u32) -> Option<TCB> {
+    rprintln!("Creating task with stack size: {}", stack_size);
+    TCB::new_task(task as u32, stack_size)
 }
 
 pub fn test_kernel() {

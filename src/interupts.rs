@@ -5,34 +5,9 @@ use core::{arch::asm};
 
 use crate::syscalls;
 use super::utils::{InterruptContext, ProgramStatus};
-use crate::{create_task, idle};
-extern "C" {
-    fn runFirstThread();
-    // fn idleThread();
-}
 
-// #[exception]
-// fn SVCall() {
-//     let sf = InterruptContext::load();
-//     rprintln!("{:?}", sf);
-//     let svc_number = sf.unwrap().get_svc_number().unwrap();
-//     match svc_number {
-//         0 => {
-//             rprintln!("hererer");
-//             let tcb = create_task(idle as u32, 0x400).unwrap(); // create the idle task
-//             unsafe { 
-//                 asm!("msr psp, {0}", in(reg) tcb.stack_ptr);
-//                 runFirstThread(); 
-//             }
-//         }
-//         1 => {
-//             syscalls::hello_world();
-//         }
-//         _ => {
-//             rprintln!("Unknown SVC number: {}", svc_number);
-//         }
-//     }
-// }
+
+
 #[no_mangle]
 fn SVCall_Handler(sp: *const u32) {
     // if using msp do this, other wise use regular load TODO
@@ -41,11 +16,7 @@ fn SVCall_Handler(sp: *const u32) {
     let svc_number = sf.unwrap().get_svc_number().unwrap();
     match svc_number {
         0 => {
-            let tcb = create_task(idle as u32, 0x400).unwrap(); // create the idle task
-            unsafe { 
-                asm!("msr psp, {0}", in(reg) tcb.stack_ptr);
-                runFirstThread(); 
-            }
+            syscalls::start_scheduler();
         }
         1 => {
             syscalls::hello_world();

@@ -1,9 +1,17 @@
 use rtt_target::rprintln;
+use super::kernel::{TCB, idle, initial_context_switch};
+
 use core::arch::asm;
+
+pub fn start_scheduler() {
+    let tcb = TCB::new_task(idle as u32, 0x1000).unwrap(); // create the idle task
+    unsafe { initial_context_switch(tcb.stack_ptr) };
+}
 
 pub fn hello_world() {
     rprintln!("Hello, world!");
 }
+
 
 // pub fn start_scheduler() {
 //     let tcb = create_task(idle, 0x1000).unwrap(); // create the idle task

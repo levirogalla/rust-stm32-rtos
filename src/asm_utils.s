@@ -7,23 +7,18 @@
 ; idleThread:
 ;   B .
 
-.global runFirstThread //Running the first thread requires some special consideration, so it is its own function
-.thumb_func
-runFirstThread:
-//Restore MSP since we have two things on there that won't go away
-; POP {R7}
-; POP {R7}
-
-//Get ready for PSP
-MRS R0, PSP
-MOV LR, #0xFFFFFFFD
-// LDMIA R0!,{R4-R11}
-MSR PSP, R0
-BX LR
-
 
 .global SVCall
 .thumb_func
 SVCall:
     mov r0, sp // get location of where stack frame is created and pass it to rust, this can't be done in rust because the compiler adds a bunch of stuff on the stack ontop of this if we are making a call from msp
     b SVCall_Handler
+
+
+.global initial_context_switch
+.thumb_func
+initial_context_switch:
+    mov lr, #0xFFFFFFFD //Set the return address to the thread mode
+    ldmia r0!, {r4-r11} //Load the registers from the stack
+    msr psp, r0 //Set the process stack pointer to the value in r0, the first argument
+    bx lr //Return to the thread mode

@@ -1,5 +1,4 @@
-use core::{arch::asm, fmt::Debug, iter::empty, ptr};
-
+use core::{arch::asm, fmt::Debug, iter::empty, ptr}; 
 use rtt_target::{rprint, rprintln};
 
 pub struct VectorTable;
@@ -67,9 +66,8 @@ impl InterruptContext {
                     xpsr: *sp.offset(7),
                 },
             })
-        }     
+        }
     }
-
 
     pub fn load() -> Option<Self> {
         let ps = ProgramStatus::load();
@@ -114,7 +112,7 @@ impl InterruptContext {
             r2: 2,
             r3: 3,
             r12: 12,
-            lr: 0xFFFFFFFD,
+            lr: 16,
             pc: pc,
             xpsr: ProgramStatus { xpsr: 1 << 24 },
         }
@@ -131,7 +129,6 @@ impl InterruptContext {
         ptr::write_volatile(sp.offset(-2), self.pc);
         ptr::write_volatile(sp.offset(-1), self.xpsr.xpsr);
 
-    
         sp.offset(-8) as u32 // Ensure 8-byte alignment
     }
 }
@@ -270,7 +267,7 @@ impl CalleeRegisters {
         ptr::write_volatile(sp.offset(-2), self.r10);
         ptr::write_volatile(sp.offset(-1), self.r11);
 
-        sp.offset(-7) as u32
+        sp.offset(-8) as u32
     }
 
     pub fn load_from_stack() {
@@ -283,15 +280,23 @@ impl CalleeRegisters {
 
     pub fn new_fake() -> Self {
         CalleeRegisters {
-            r4: 61,
-            r5: 62,
-            r6: 63,
-            r7: 64,
-            r8: 65,
-            r9: 66,
-            r10: 68,
-            r11: 69,
+            r4: 4,
+            r5: 5,
+            r6: 6,
+            r7: 7,
+            r8: 8,
+            r9: 9,
+            r10: 10,
+            r11: 11,
         }
     }
+}
 
+
+pub fn read_control_register() -> u32 {
+    let control: u32;
+    unsafe {
+        asm!("mrs {0}, CONTROL", out(reg) control);
+    }
+    control
 }

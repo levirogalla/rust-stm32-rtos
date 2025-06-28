@@ -1,29 +1,15 @@
-Feb 8: Just figured out why I wasn't able to access the cpu state before a context switch. I was only using msp.
-I changed to psp and now things are looking a bit better, sp follows psp in user mode and if follows msp is privileged mode
-I haven't been apple to access r0,r1,r2,r3 from the stack yet but I think it should be easier, psp increase by 36 bytes when a 
-context switch happens, this is wierd since arm abi only pushes 8 u32's to the stack, what is the extra 4 bytes?
+Feb 8: Just figured out why I wasn't able to access the cpu state before a context switch. I was only using msp. I changed to psp and now things are looking a bit better, sp follows psp in user mode and if follows msp is privileged mode I haven't been apple to access r0,r1,r2,r3 from the stack yet but I think it should be easier, psp increase by 36 bytes when a  context switch happens, this is wierd since arm abi only pushes 8 u32's to the stack, what is the extra 4 bytes?
 
-Feb 8: I've been calling the svc and then getting the register values right after in inline assembly, I though the cpu
-restores them, so i was really confused that they are different. But I realised that llvm does not optimize my inline assembly,
-and it is actually the compiler that stores my registers, the ABI says that the calling function is responsible for storing r0-r3
-so my inline assembly is never giving a chance for the compiler to restore the registers.
+Feb 8: I've been calling the svc and then getting the register values right after in inline assembly, I though the cpu restores them, so i was really confused that they are different. But I realised that llvm does not optimize my inline assembly, and it is actually the compiler that stores my registers, the ABI says that the calling function is responsible for storing r0-r3 so my inline assembly is never giving a chance for the compiler to restore the registers.
 
-Feb 8: I can find all the saved registers on the stack except for r0-r2 and I have no idea why, everything is where it should be
-but those r just random values.
+Feb 8: I can find all the saved registers on the stack except for r0-r2 and I have no idea why, everything is where it should be but those r just random values.
 
-Feb 8: Oh my god, to debug I was saving the register r0-4, 14, lr etc before svc, in a asm!, then in another asm! I was calling svc.
-In the svc handler I would get the psp and dereference it with an offeset of 4*0..8, the value with 0 offset was always xPSR and all the 
-values following matched the order that these values should be going on the stack (reversed but I didn't realise). This is what I was talking about
-before when I was like oh why are r 0,1,2 there. Well I though let me move values into those registers in the same asm block as I call the svc
-so I can be sure the compiler isnt doing anything weird. Well... ofcourse it was, I now see r0 where I though xPSR was, and realise that the compiler was
-using the registers and changing them before calling the svc. Lovely.
+Feb 8: Oh my god, to debug I was saving the register r0-4, 14, lr etc before svc, in a asm!, then in another asm! I was calling svc. In the svc handler I would get the psp and dereference it with an offeset of 4*0..8, the value with 0 offset was always xPSR and all the  values following matched the order that these values should be going on the stack (reversed but I didn't realise). This is what I was talking about before when I was like oh why are r 0,1,2 there. Well I though let me move values into those registers in the same asm block as I call the svc so I can be sure the compiler isnt doing anything weird. Well... ofcourse it was, I now see r0 where I though xPSR was, and realise that the compiler was using the registers and changing them before calling the svc. Lovely.
 
-Feb 8: Okay this stuff is making more sense, r0-3, LR, xPSR, PC, r12 are caller saved registers, meaning the caller of the function is responsible for
-maintaining their state accross function calls, r4-11 are callee saved register meaning the called function is responsible for saving their state. the
-reason I was getting weird behaviour before is because I was using the syntax 'mov {0}, xPSR', this mean the compiler has to decide which register to
-store this value in, I was overiding this register and printing it and getting confused.
+Feb 8: Okay this stuff is making more sense, r0-3, LR, xPSR, PC, r12 are caller saved registers, meaning the caller of the function is responsible for maintaining their state accross function calls, r4-11 are callee saved register meaning the called function is responsible for saving their state. the reason I was getting weird behaviour before is because I was using the syntax 'mov {0}, xPSR', this mean the compiler has to decide which register to store this value in, I was overiding this register and printing it and getting confused.
 
-Feb 8: the reason PSP increase by 36 bytes and not 32 is because the cpu add 4 bytes of padding for memory alignment which I don't full
-understand why yet
+Feb 8: the reason PSP increase by 36 bytes and not 32 is because the cpu add 4 bytes of padding for memory alignment which I don't full understand why yet
 
 Feb 8: Finally, after 2 days, I'm able to succefully destructer a svc call and extract the svc number with out any packages other than the runtime!!
+
+Mar 13: After about 20 hours of being and idiot, I released you can not return from an exception if you are not in an exception... duh! Anyways I got a context switch to work. My problem was when the cpu boots it's on msp, I do my setup and then to start the scheduler I was putting the 'fake' context on psp, but I never started a exception so when I return to the special return address 0xfffffffd the cpu hard faults. All I had to do was enter an exception to setup.

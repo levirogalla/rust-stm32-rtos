@@ -14,6 +14,7 @@ fn main() -> ! {
     kernel_init();
 
     start_scheduler();
+    rprintln!("Scheduler started");
 
     test_kernel();
 
