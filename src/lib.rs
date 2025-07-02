@@ -11,6 +11,7 @@ mod syscalls;
 mod utils;
 mod kernel;
 mod synchronization;
+mod registers;
 
 
 use core::num;
@@ -55,9 +56,20 @@ pub fn start_scheduler() {
 
 /// Creates a new task control block (TCB) for a task with the given stack size in bytes.
 pub fn create_task(task: fn() -> !, stack_size: u32) -> Option<TCB> {
-    rprintln!("Creating task with stack size: {}", stack_size);
-    TCB::new_task(task as u32, stack_size)
+    let tcb = TCB::new_task(task as u32, stack_size)?;
+    critical_section::with(|cs_token| {
+        state::THREADS.borrow(cs_token).borrow_mut().enqueue(tcb);
+    });
+    Some(tcb)
 }
+
+/// Yields the CPU to allow other tasks to run, triggering a context switch.
+pub fn yield_cpu() {
+    unsafe {
+        asm!("svc #1");
+    }
+}
+
 
 pub fn test_kernel() {
     test_queue();

@@ -1,6 +1,6 @@
-use core::{arch::asm, fmt::Debug, iter::empty, ptr}; 
+use core::{arch::asm, fmt::Debug, iter::empty, ptr};
 use rtt_target::{rprint, rprintln};
-
+use super::registers;
 pub struct VectorTable;
 
 impl VectorTable {
@@ -22,10 +22,7 @@ pub struct ProgramStatus {
 
 impl ProgramStatus {
     pub fn load() -> Self {
-        let xpsr: u32;
-        unsafe {
-            asm!("mrs {}, xPSR", out(reg) xpsr);
-        };
+        let xpsr = registers::get::xpsr();
         ProgramStatus { xpsr }
     }
 
@@ -36,7 +33,7 @@ impl ProgramStatus {
 
 #[derive(Debug)]
 #[allow(dead_code)]
-pub struct InterruptContext {
+pub struct ScratchRegisters {
     r0: u32,
     r1: u32,
     r2: u32,
@@ -47,50 +44,25 @@ pub struct InterruptContext {
     xpsr: ProgramStatus,
 }
 
-impl InterruptContext {
-    pub unsafe fn load_at(sp: *const u32) -> Option<Self> {
+impl ScratchRegisters {
+    /// load the interrupt context from the stack pointer, this will check if the cpu is in an interrupt state, but it cannot verify sp is correct which will cause undefined behavior if it is not. it will return None if the cpu is in thread mode.
+    pub unsafe fn load_at(address: *const u32) -> Option<Self> {
         let ps = ProgramStatus::load();
         if ps.get_interrupt_program_status() == 0 {
             return None;
         }
-        unsafe {
-            Some(InterruptContext {
-                r0: *sp.offset(0),
-                r1: *sp.offset(1),
-                r2: *sp.offset(2),
-                r3: *sp.offset(3),
-                r12: *sp.offset(4),
-                lr: *sp.offset(5),
-                pc: *sp.offset(6),
-                xpsr: ProgramStatus {
-                    xpsr: *sp.offset(7),
-                },
-            })
-        }
-    }
-
-    pub fn load() -> Option<Self> {
-        let ps = ProgramStatus::load();
-        if ps.get_interrupt_program_status() == 0 {
-            return None;
-        }
-
-        let psp: *const u32;
-        unsafe {
-            asm!("mrs {}, psp", out(reg) psp);
-            Some(InterruptContext {
-                r0: *psp.offset(0),
-                r1: *psp.offset(1),
-                r2: *psp.offset(2),
-                r3: *psp.offset(3),
-                r12: *psp.offset(4),
-                lr: *psp.offset(5),
-                pc: *psp.offset(6),
-                xpsr: ProgramStatus {
-                    xpsr: *psp.offset(7),
-                },
-            })
-        }
+        Some(ScratchRegisters {
+            r0: *address.offset(0),
+            r1: *address.offset(1),
+            r2: *address.offset(2),
+            r3: *address.offset(3),
+            r12: *address.offset(4),
+            lr: *address.offset(5),
+            pc: *address.offset(6),
+            xpsr: ProgramStatus {
+                xpsr: *address.offset(7),
+            },
+        })
     }
 
     pub fn get_svc_number(&self) -> Option<u8> {
@@ -106,7 +78,7 @@ impl InterruptContext {
     }
 
     pub fn new_fake(pc: u32) -> Self {
-        InterruptContext {
+        ScratchRegisters {
             r0: 0,
             r1: 1,
             r2: 2,
@@ -118,7 +90,7 @@ impl InterruptContext {
         }
     }
 
-    /// Pushes the context to the active stack return new stack pointer
+    /// Pushes the context to the active stack return new stack pointer, will overwrite the stack pointer, so make sure to use it correctly.
     pub unsafe fn push_to_sp(self, sp: *mut u32) -> u32 {
         ptr::write_volatile(sp.offset(-8), self.r0);
         ptr::write_volatile(sp.offset(-7), self.r1);
@@ -256,8 +228,8 @@ pub struct CalleeRegisters {
 }
 
 impl CalleeRegisters {
-    /// Save the current struct to the passed stack pointer and return updated stack pointer
-    pub unsafe fn push_to_sp(self, sp: *mut u32) -> u32 {
+    /// Save the current struct to the passed stack pointer and return updated stack pointer, this will overwrite the stack pointer, so make sure to use it correctly.
+    pub unsafe fn push_to_sp(self, sp: *mut u32) -> *const u32 {
         ptr::write_volatile(sp.offset(-8), self.r4);
         ptr::write_volatile(sp.offset(-7), self.r5);
         ptr::write_volatile(sp.offset(-6), self.r6);
@@ -267,11 +239,25 @@ impl CalleeRegisters {
         ptr::write_volatile(sp.offset(-2), self.r10);
         ptr::write_volatile(sp.offset(-1), self.r11);
 
-        sp.offset(-8) as u32
+        sp.offset(-8)
     }
 
-    pub fn load_from_stack() {
-        todo!();
+    /// Load the callee registers from the stack pointer, this will not check if the stack pointer is correct, so it can cause undefined behavior if it is not.
+    pub unsafe fn load_at(address: *const u32) -> Option<Self> {
+                let ps = ProgramStatus::load();
+        if ps.get_interrupt_program_status() == 0 {
+            return None;
+        }
+        Some(CalleeRegisters {
+            r4: *address.offset(0),
+            r5: *address.offset(1),
+            r6: *address.offset(2),
+            r7: *address.offset(3),
+            r8: *address.offset(4),
+            r9: *address.offset(5),
+            r10: *address.offset(6),
+            r11: *address.offset(7),
+        })
     }
 
     pub fn load_from_register() {
@@ -291,6 +277,27 @@ impl CalleeRegisters {
         }
     }
 }
+
+
+pub struct InterruptCPUState {
+    pub scratch_registers: ScratchRegisters,
+    pub callee_registers: CalleeRegisters,
+}
+
+impl InterruptCPUState {
+
+    /// Load the interrupt CPU state from the stack pointer, this will not check if the stack pointer is correct, so it can cause undefined behavior if it is not.
+    pub unsafe fn load(thread_sp: *const u32) -> Self {
+        let callee_registers = CalleeRegisters::load_at(thread_sp).unwrap();
+        let scratch_registers = ScratchRegisters::load_at(thread_sp.offset(8)).unwrap();
+
+        InterruptCPUState {
+            scratch_registers,
+            callee_registers,
+        }
+    }
+}
+
 
 
 pub fn read_control_register() -> u32 {

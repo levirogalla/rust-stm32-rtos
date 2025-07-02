@@ -5,7 +5,7 @@ chip = "STM32F401RE"
 enabled = true
 
 [default.gdb]
-enabled = false
+enabled = true
 
 [default.reset]
-halt_afterwards = false
+halt_afterwards = true
