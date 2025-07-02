@@ -19,7 +19,7 @@ extern "C" fn SVCall_Handler(sp: *const u32) { // make as extgern "C" so it can 
         }
         1 => {
             unsafe { 
-                *registers::mm::ICSR::ADDR |= registers::mm::ICSR::PENDSVSET; // set the PendSV bit to trigger a context switch
+                *registers::scb::ICSR::ADDR |= registers::scb::ICSR::PENDSVSET; // set the PendSV bit to trigger a context switch
                 asm!("isb"); // sync cpu instructions with new state, this is because the cpu pre fetches instructions, but how those instructions are executed depending on status/control registers, so if we set a control register we want the cpu to discard the pre fetched instructions and execute the new ones with the new state
             } 
         }
@@ -40,19 +40,15 @@ extern "C" fn PendSV_Handler(sp: *const u32) {
             // Save the current task's stack pointer
             tcb.stack_ptr = sp as u32;
         }
-        let qd1 = *threads_queue.data();
-        let qs1 = threads_queue.length();
+
         threads_queue.enqueue(running_task.unwrap());
-        let qs2 = threads_queue.length();
-        let qd2 = *threads_queue.data();
 
         // Dequeue the next task to run
         let next_task = threads_queue.dequeue();
-        let qs3 = threads_queue.length();
-        let qd3 = *threads_queue.data();
+
         unsafe { registers::set::psp(next_task.unwrap().stack_ptr as u32); } //set the psp so that PendSV can pop the state and use it
         state::RUNNING_TASK.borrow(cs_token).replace(next_task);
-        let x = 0x20015f98;
+
     });
 }
 
@@ -74,6 +70,25 @@ unsafe fn HardFault(_sf: &ExceptionFrame) -> ! {
     rprintln!("PSP: {:#010X}, MSP: {:#010X}, SP: {:#010X}", psp, msp, sp);
     loop {}
 }
+
+
+static mut SYSTICK_COUNT: u32 = 0;
+#[exception]
+unsafe fn SysTick() {
+    SYSTICK_COUNT += 1;
+    let interval = critical_section::with(|cs_token| {
+        let running_task = state::RUNNING_TASK.borrow(cs_token).borrow();
+        running_task.unwrap().timeout
+            
+    });
+    if SYSTICK_COUNT > interval {
+        SYSTICK_COUNT = 0;
+        // Trigger a context switch by setting the PendSV bit
+        *registers::scb::ICSR::ADDR |= registers::scb::ICSR::PENDSVSET;
+        asm!("isb"); // sync cpu instructions with new state
+    }
+}
+
 
 #[inline(never)]
 #[panic_handler]

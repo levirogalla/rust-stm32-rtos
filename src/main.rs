@@ -20,10 +20,19 @@ fn task1() -> ! {
 
 fn task2() -> ! {
     loop {
-        for _ in 0..3 {
-            rprintln!("Task 2 is running");
+        rprintln!("Task2\n");
+        for _ in 0..200000 {
+            unsafe { asm!("nop") }
         }
-        yield_cpu();
+    }
+}
+
+fn task3() -> ! {
+    loop {
+        rprintln!("Task3\n");
+        for _ in 0..200000 {
+            unsafe { asm!("nop") }
+        }
     }
 }
 
@@ -31,8 +40,9 @@ fn task2() -> ! {
 fn main() -> ! {
     kernel_init();
 
-    create_task(task1, 1000);
-    create_task(task2, 1000);
+    create_task(task1, 1000, 1000, 0, 0);
+    create_task(task2, 1000, 1, 0, 0);
+    create_task(task3, 1000, 1, 0, 0);
 
     start_scheduler();
 

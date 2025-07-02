@@ -350,8 +350,9 @@ pub mod set {
     }
 }
 
-// memory mappped registers
-pub mod mm {
+// system control block registers
+pub mod scb {
+    // Systm control block registers
     pub struct ICSR;
 
     impl ICSR {
@@ -368,7 +369,6 @@ pub mod mm {
         pub const RETTOBASE: u32 = 1 << 11; // Return to base bit
         pub const VECTACTIVE: u32 = 0b11111111 << 0; // Active vector bits
     }
-    
 
     // TODO: implement the struct version for the rest of these at some point
     pub const ACTLR: *mut u32 = 0xe000e008 as *mut u32; // Auxiliary Control Register (RW)
@@ -389,4 +389,120 @@ pub mod mm {
     pub const MMAR: *mut u32 = 0xe000ed34 as *mut u32; // MemManage Fault Address Register (RW)
     pub const BFAR: *mut u32 = 0xe000ed38 as *mut u32; // BusFault Address Register (RW)
     pub const AFSR: *mut u32 = 0xe000ed3c as *mut u32; // Auxiliary Fault Status Register (RW)
+
+    // SysTick registers
+}
+
+
+pub mod systick {
+
+    // SysTick Control and Status Register (CSR)
+    pub struct CSR;
+
+    impl CSR {
+        pub const ADDR: *mut u32 = 0xe000e010 as *mut u32; // SysTick Control and Status Register (RW)
+
+        /// Returns 1 if timer counted to 0 since last time this was read.
+        pub const COUNTFLAG: u32 = 1 << 16;
+
+        /// Indicates the clock source:
+        /// 0 = external clock
+        /// 1 = processor clock.
+        pub const CLKSOURCE: u32 = 1 << 2;
+
+        /// Enables SysTick exception request:
+        /// 0 = counting down to zero does not assert the SysTick exception request
+        /// 1 = counting down to zero asserts the SysTick exception request.
+        /// Software can use COUNTFLAG to determine if SysTick has ever counted to zero.
+        pub const TICKINT: u32 = 1 << 1;
+
+        /// Enables the counter:
+        /// 0 = counter disabled
+        /// 1 = counter enabled.
+        pub const ENABLE: u32 = 1 << 0;
+    }
+
+    pub struct RVR;
+
+    impl RVR {
+        pub const ADDR: *mut u32 = 0xe000e014 as *mut u32; // SysTick Reload Value Register (RW)
+        pub const RELOAD_MASK: u32 = 0x00FFFFFF; // Mask for the reload value
+
+        /// Set the value the clock will count down from, max is 0x00FFFFFF (16,777,215)
+        pub fn set_reload(value: u32) {
+            unsafe {
+                RVR::ADDR.write_volatile(value & RVR::RELOAD_MASK);
+            }
+        }
+    }
+
+    pub const CVR: *mut u32 = 0xe000e018 as *mut u32; // SysTick Current Value Register (RW)
+    pub const CALIB: *const u32 = 0xe000e01c as *const u32; // SysTick Calibration Value Register (RO)
+
+
+    pub fn countflag() -> bool {
+        unsafe {
+            let csr = CSR::ADDR;
+            (csr.read_volatile() & CSR::COUNTFLAG) != 0
+        }
+    }
+
+    pub fn clock_source() -> bool {
+        unsafe {
+            let csr = CSR::ADDR;
+            (csr.read_volatile() & CSR::CLKSOURCE) != 0
+        }
+    }
+
+    pub fn enable_systick_interrupt() {
+        unsafe {
+            let csr = CSR::ADDR;
+            csr.write_volatile(*CSR::ADDR | CSR::TICKINT);
+        }
+    }
+
+    pub fn disable_systick_interrupt() {
+        unsafe {
+            let csr = CSR::ADDR;
+            csr.write_volatile(*CSR::ADDR & !CSR::TICKINT);
+        }
+    }
+
+    pub fn systick_interrupt_enabled() -> bool {
+        unsafe {
+            let csr = CSR::ADDR;
+            (csr.read_volatile() & CSR::TICKINT) != 0
+        }
+    }
+
+    pub fn enable_counter() {
+        unsafe {
+            let csr = CSR::ADDR;
+            csr.write_volatile(*CSR::ADDR | CSR::ENABLE);
+        }
+    }
+
+    pub fn disable_counter() {
+        unsafe {
+            let csr = CSR::ADDR;
+            csr.write_volatile(*CSR::ADDR & !CSR::ENABLE);
+        }
+    }
+
+    pub fn counter_enabled() -> bool {
+        unsafe {
+            let csr = CSR::ADDR;
+            (csr.read_volatile() & CSR::ENABLE) != 0
+        }
+    }
+
+    pub fn set_reload_value(value: u32) {
+        RVR::set_reload(value);
+    }
+
+    pub fn get_reload_value() -> u32 {
+        unsafe {
+            RVR::ADDR.read_volatile()
+        }
+    }
 }

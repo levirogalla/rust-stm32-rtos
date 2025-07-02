@@ -12,12 +12,19 @@ extern "C" {
     pub fn initial_context_switch(psp: *const u32) -> !;
 }
 
+pub const DEFAULT_SYSTICK_INTERVAL: u32 = 1_000; // 1ms in microseconds, this is very not accurate tho, not sure if I am doing something wrong or its something else to do with the clock.
+pub const CPU_CLOCK_HZ: u32 = 16_000_000; // 16MHz, this is the default clock speed for most STM32 MCUs
+
+
 static mut ID_COUNTER: u32 = 0;
 #[derive(Debug, Copy)]
 pub struct TCB {
     pub stack_ptr: u32,
     pub stack_size: u32,
     pub stack_start: u32,
+    pub timeout: u32,
+    pub args: u32,
+    pub priority: u32,
     pub id: u32,
     // state: ThreadState,
 }
@@ -31,6 +38,9 @@ impl Clone for TCB {
             stack_ptr: self.stack_ptr,
             stack_size: self.stack_size,
             stack_start: self.stack_start,
+            timeout: self.timeout,
+            args: self.args,
+            priority: self.priority,
             id: unsafe { ID_COUNTER },
         }
     }
@@ -38,7 +48,13 @@ impl Clone for TCB {
 
 impl TCB {
     /// Creates a new task control block (TCB) for a task with the given stack size in bytes. This function will reserve stack space, create a fake context, and initialize the TCB with a unique ID. This does not add the TCB to the scheduler's queue.
-    pub fn new_task(task: u32, stack_size: u32) -> Option<TCB> {
+    /// # Arguments
+    /// * `task` - The task function to be executed, represented as a u32
+    /// * `stack_size` - The size of the stack for the task in bytes
+    /// * `timeout` - The timeout for the task in milliseconds, 0 for no timout, timout will be checked in intervals set by the set timeout svcall, the default is 10ms
+    /// * `args` - Arguments to be passed to the task function, represented as a u32, it should be a pointer to some user defined data structure
+    /// * `priority` - The priority of the task, represented as a u32,
+    pub fn new_task(task: u32, stack_size: u32, timeout: u32, args: u32, priority: u32) -> Option<TCB> {
         let stack_start = reserve_stack_space(stack_size)?; // reserve space and get the psp
         let fake_context = ScratchRegisters::new_fake(task as u32); // make a fake context
         let psp = unsafe {
@@ -48,6 +64,9 @@ impl TCB {
         let tcb = TCB {
             stack_ptr: psp as u32,
             stack_size: stack_size,
+            timeout,
+            args,
+            priority,
             stack_start,
             id: unsafe { 
                 ID_COUNTER += 1;
@@ -79,8 +98,5 @@ pub fn idle() -> ! {
         for _ in 0..200000 {
             unsafe { asm!("nop") }
         }
-        yield_cpu();
-        // unsafe {asm!("wfi", options(nomem, nostack))}
-        let x = 0x20015f98;
     }
 }

@@ -17,5 +17,4 @@ pub static LAST_STACK_END: AtomicU32 = AtomicU32::new(0);
 
 /// A mutex that holds the currently running task control block (TCB).
 pub static RUNNING_TASK: Mutex<RefCell<Option<TCB>>> = Mutex::new(RefCell::new(None));
-
 // thread states: new ready running blocked terminated

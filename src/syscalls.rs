@@ -9,7 +9,7 @@ use core::arch::asm;
 
 pub fn start_scheduler() {
     // TODO: maybe this should running the scheduler first instead of going directly into the idle task?
-    let tcb = TCB::new_task(idle as u32, 0x1000).unwrap(); // create the idle task
+    let tcb = TCB::new_task(idle as u32, 0x1000, 1, 0, 0).unwrap(); // create the idle task
     critical_section::with(|cs_token| {
         state::RUNNING_TASK.borrow(cs_token).replace(Some(tcb));
     });

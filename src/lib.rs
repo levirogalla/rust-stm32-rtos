@@ -11,7 +11,7 @@ mod syscalls;
 mod utils;
 mod kernel;
 mod synchronization;
-mod registers;
+pub mod registers;
 
 
 use core::num;
@@ -46,6 +46,13 @@ pub fn kernel_init() {
         utils::VectorTable::get_sp() - state::MSP_STACK_SIZE,
         Ordering::SeqCst,
     );
+    registers::systick::enable_counter();
+    registers::systick::enable_systick_interrupt();
+
+    let reload_value = kernel::DEFAULT_SYSTICK_INTERVAL * (kernel::CPU_CLOCK_HZ / 1_000_000) ;
+    rprintln!("Setting SysTick reload value to: {}", reload_value);
+    registers::systick::set_reload_value(reload_value);
+
     rprintln!("Kernel initialized");
 }
 
@@ -55,8 +62,8 @@ pub fn start_scheduler() {
 }
 
 /// Creates a new task control block (TCB) for a task with the given stack size in bytes.
-pub fn create_task(task: fn() -> !, stack_size: u32) -> Option<TCB> {
-    let tcb = TCB::new_task(task as u32, stack_size)?;
+pub fn create_task(task: fn() -> !, stack_size: u32, timeout: u32, args: u32, priority: u32) -> Option<TCB> {
+    let tcb = TCB::new_task(task as u32, stack_size, timeout, args, priority)?;
     critical_section::with(|cs_token| {
         state::THREADS.borrow(cs_token).borrow_mut().enqueue(tcb);
     });
