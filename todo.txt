@@ -1,0 +1,4 @@
+add ability to pass arguments to threads
+fix the timer to be more accurate, since its pretty bad rn
+add states, running, blocked, ready, etc
+improve mutex to update state, etc

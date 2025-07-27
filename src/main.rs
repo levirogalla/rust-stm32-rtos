@@ -6,7 +6,7 @@ use cortex_m_rt::entry;
 use rtt_target::rprintln;
 use rust_stm32_helloworld::{self, yield_cpu};
 // use cortex_m;
-use rust_stm32_helloworld::{kernel_init, start_scheduler};
+use rust_stm32_helloworld::{kernel_init, start_scheduler, create_task};
 // use rust_stm32_helloworld::kernel;
 
 fn task1() -> ! {
@@ -21,8 +21,9 @@ fn task1() -> ! {
 fn task2() -> ! {
     loop {
         rprintln!("Task2\n");
-        for _ in 0..200000 {
+        for _ in 0..20000 {
             unsafe { asm!("nop") }
+            // yield_cpu();
         }
     }
 }
@@ -30,8 +31,9 @@ fn task2() -> ! {
 fn task3() -> ! {
     loop {
         rprintln!("Task3\n");
-        for _ in 0..200000 {
+        for _ in 0..20000 {
             unsafe { asm!("nop") }
+            // yield_cpu();
         }
     }
 }
@@ -41,8 +43,8 @@ fn main() -> ! {
     kernel_init();
 
     // create_task(task1, 1000, 1000, 0, 2);
-    // create_task(task2, 1000, 1, 0, 2);
-    // create_task(task3, 1000, 1, 0, 3);
+    create_task(task2, 1000, 1, 0, 2);
+    create_task(task3, 1000, 1, 0, 2);
 
     start_scheduler();
 

@@ -46,7 +46,7 @@ pub fn kernel_init() {
     registers::systick::enable_counter();
     registers::systick::enable_systick_interrupt();
 
-    let reload_value = kernel::DEFAULT_SYSTICK_INTERVAL * (kernel::CPU_CLOCK_HZ / 1_000_000);
+    let reload_value = kernel::DEFAULT_SYSTICK_INTERVAL * (kernel::CPU_CLOCK_HZ / 1_000_000) - 1;
     rprintln!("Setting SysTick reload value to: {}", reload_value);
     registers::systick::set_reload_value(reload_value);
 
