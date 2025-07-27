@@ -6,20 +6,19 @@
 #![no_std]
 
 mod interupts;
+mod kernel;
+pub mod registers;
 mod state;
+mod synchronization;
 mod syscalls;
 mod utils;
-mod kernel;
-mod synchronization;
-pub mod registers;
-
 
 use core::num;
-use core::{arch::asm, ptr};
 use core::sync::atomic::Ordering;
+use core::{arch::asm, ptr};
 
+use kernel::{idle, initial_context_switch, TCB};
 use rtt_target::{rprintln, rtt_init_print};
-use kernel::{TCB, initial_context_switch, idle};
 use utils::read_control_register;
 
 // /// Represents a thread/task in the RTOS
@@ -49,7 +48,7 @@ pub fn kernel_init() {
     registers::systick::enable_counter();
     registers::systick::enable_systick_interrupt();
 
-    let reload_value = kernel::DEFAULT_SYSTICK_INTERVAL * (kernel::CPU_CLOCK_HZ / 1_000_000) ;
+    let reload_value = kernel::DEFAULT_SYSTICK_INTERVAL * (kernel::CPU_CLOCK_HZ / 1_000_000);
     rprintln!("Setting SysTick reload value to: {}", reload_value);
     registers::systick::set_reload_value(reload_value);
 
@@ -58,14 +57,23 @@ pub fn kernel_init() {
 
 /// Starts the idle task and switches to it using the initial context switch.
 pub fn start_scheduler() {
-    unsafe { asm!("svc #0")}
+    unsafe { asm!("svc #0") }
 }
 
 /// Creates a new task control block (TCB) for a task with the given stack size in bytes.
-pub fn create_task(task: fn() -> !, stack_size: u32, timeout: u32, args: u32, priority: u32) -> Option<TCB> {
+pub fn create_task(
+    task: fn() -> !,
+    stack_size: u32,
+    timeout: u32,
+    args: u32,
+    priority: u32,
+) -> Option<TCB> {
     let tcb = TCB::new_task(task as u32, stack_size, timeout, args, priority)?;
     critical_section::with(|cs_token| {
-        state::THREADS.borrow(cs_token).borrow_mut().enqueue(tcb);
+        state::READY_TASKS[priority as usize]
+            .borrow(cs_token)
+            .borrow_mut()
+            .enqueue(tcb);
     });
     Some(tcb)
 }
@@ -76,7 +84,6 @@ pub fn yield_cpu() {
         asm!("svc #1");
     }
 }
-
 
 pub fn test_kernel() {
     test_queue();

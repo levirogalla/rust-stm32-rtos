@@ -40,18 +40,15 @@ fn task3() -> ! {
 fn main() -> ! {
     kernel_init();
 
-    create_task(task1, 1000, 1000, 0, 0);
-    create_task(task2, 1000, 1, 0, 0);
-    create_task(task3, 1000, 1, 0, 0);
+    // create_task(task1, 1000, 1000, 0, 2);
+    // create_task(task2, 1000, 1, 0, 2);
+    // create_task(task3, 1000, 1, 0, 3);
 
     start_scheduler();
 
-
     rprintln!("Scheduler started");
 
-
     // test_kernel();
-
 
     loop {}
 }

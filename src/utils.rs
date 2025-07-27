@@ -1,6 +1,6 @@
+use super::registers;
 use core::{arch::asm, fmt::Debug, iter::empty, ptr};
 use rtt_target::{rprint, rprintln};
-use super::registers;
 pub struct VectorTable;
 
 impl VectorTable {
@@ -244,7 +244,7 @@ impl CalleeRegisters {
 
     /// Load the callee registers from the stack pointer, this will not check if the stack pointer is correct, so it can cause undefined behavior if it is not.
     pub unsafe fn load_at(address: *const u32) -> Option<Self> {
-                let ps = ProgramStatus::load();
+        let ps = ProgramStatus::load();
         if ps.get_interrupt_program_status() == 0 {
             return None;
         }
@@ -278,14 +278,12 @@ impl CalleeRegisters {
     }
 }
 
-
 pub struct InterruptCPUState {
     pub scratch_registers: ScratchRegisters,
     pub callee_registers: CalleeRegisters,
 }
 
 impl InterruptCPUState {
-
     /// Load the interrupt CPU state from the stack pointer, this will not check if the stack pointer is correct, so it can cause undefined behavior if it is not.
     pub unsafe fn load(thread_sp: *const u32) -> Self {
         let callee_registers = CalleeRegisters::load_at(thread_sp).unwrap();
@@ -297,8 +295,6 @@ impl InterruptCPUState {
         }
     }
 }
-
-
 
 pub fn read_control_register() -> u32 {
     let control: u32;

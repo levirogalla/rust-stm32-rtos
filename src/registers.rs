@@ -393,7 +393,6 @@ pub mod scb {
     // SysTick registers
 }
 
-
 pub mod systick {
 
     // SysTick Control and Status Register (CSR)
@@ -438,7 +437,6 @@ pub mod systick {
 
     pub const CVR: *mut u32 = 0xe000e018 as *mut u32; // SysTick Current Value Register (RW)
     pub const CALIB: *const u32 = 0xe000e01c as *const u32; // SysTick Calibration Value Register (RO)
-
 
     pub fn countflag() -> bool {
         unsafe {
@@ -501,8 +499,6 @@ pub mod systick {
     }
 
     pub fn get_reload_value() -> u32 {
-        unsafe {
-            RVR::ADDR.read_volatile()
-        }
+        unsafe { RVR::ADDR.read_volatile() }
     }
 }
