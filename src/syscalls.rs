@@ -1,11 +1,10 @@
 //! This file contains the system call implementations for the kernel. All these function are designed to be run in privileged mode.
 
-use crate::{create_task, kernel::get_next_task, state};
+use crate::{create_task, kernel::get_next_task};
 use rtt_target::rprintln;
 
-use super::kernel::{idle, initial_context_switch, TCB};
+use super::kernel::{idle, initial_context_switch};
 
-use core::arch::asm;
 
 pub fn start_scheduler() {
     // TODO: maybe this should running the scheduler first instead of going directly into the idle task?

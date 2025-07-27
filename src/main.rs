@@ -4,7 +4,7 @@
 use core::arch::asm;
 use cortex_m_rt::entry;
 use rtt_target::rprintln;
-use rust_stm32_helloworld::{self, create_task, test_kernel, yield_cpu};
+use rust_stm32_helloworld::{self, yield_cpu};
 // use cortex_m;
 use rust_stm32_helloworld::{kernel_init, start_scheduler};
 // use rust_stm32_helloworld::kernel;

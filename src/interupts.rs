@@ -1,13 +1,11 @@
 use core::arch::asm;
-use core::cell::RefMut;
-use core::{iter::Scan, panic::PanicInfo};
+use core::panic::PanicInfo;
 use cortex_m_rt::{exception, ExceptionFrame};
 use rtt_target::rprintln;
 
-use crate::state::NUM_PRIORITIES;
 use crate::{
     kernel, registers, state, syscalls,
-    utils::{CalleeRegisters, InterruptCPUState, Queue, ScratchRegisters},
+    utils::ScratchRegisters,
 };
 
 #[no_mangle] // make sure the rust compiler does not mangle the name

@@ -1,6 +1,5 @@
 use super::registers;
-use core::{arch::asm, fmt::Debug, iter::empty, ptr};
-use rtt_target::{rprint, rprintln};
+use core::{arch::asm, fmt::Debug, ptr};
 pub struct VectorTable;
 
 impl VectorTable {
@@ -85,7 +84,7 @@ impl ScratchRegisters {
             r3: 3,
             r12: 12,
             lr: 16,
-            pc: pc,
+            pc,
             xpsr: ProgramStatus { xpsr: 1 << 24 },
         }
     }

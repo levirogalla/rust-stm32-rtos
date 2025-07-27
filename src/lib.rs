@@ -13,13 +13,11 @@ mod synchronization;
 mod syscalls;
 mod utils;
 
-use core::num;
 use core::sync::atomic::Ordering;
-use core::{arch::asm, ptr};
+use core::arch::asm;
 
-use kernel::{idle, initial_context_switch, TCB};
+use kernel::TCB;
 use rtt_target::{rprintln, rtt_init_print};
-use utils::read_control_register;
 
 // /// Represents a thread/task in the RTOS
 // #[repr(C)]

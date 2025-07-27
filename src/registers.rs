@@ -367,7 +367,7 @@ pub mod scb {
         pub const ISRPENDING: u32 = 1 << 22; // Interrupt pending bit
         pub const VECTPENDING: u32 = 0b111111 << 12; // Vector pending bits
         pub const RETTOBASE: u32 = 1 << 11; // Return to base bit
-        pub const VECTACTIVE: u32 = 0b11111111 << 0; // Active vector bits
+        pub const VECTACTIVE: u32 = 0b11111111; // Active vector bits
     }
 
     // TODO: implement the struct version for the rest of these at some point

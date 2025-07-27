@@ -1,4 +1,3 @@
-use crate::yield_cpu;
 
 use super::state;
 use super::utils::{CalleeRegisters, Queue, ScratchRegisters};
@@ -62,14 +61,14 @@ impl TCB {
         priority: u32,
     ) -> Option<TCB> {
         let stack_start = reserve_stack_space(stack_size)?; // reserve space and get the psp
-        let fake_context = ScratchRegisters::new_fake(task as u32); // make a fake context
+        let fake_context = ScratchRegisters::new_fake(task); // make a fake context
         let psp = unsafe {
             let sp = fake_context.push_to_sp(stack_start as *mut u32);
             CalleeRegisters::new_fake().push_to_sp(sp as *mut u32)
         };
         let tcb = TCB {
             stack_ptr: psp as u32,
-            stack_size: stack_size,
+            stack_size,
             timeout,
             args,
             priority,
